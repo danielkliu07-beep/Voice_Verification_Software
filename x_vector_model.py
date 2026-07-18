@@ -17,7 +17,9 @@ class TDNNLayer(nn.Module):
 class XVectorModel(nn.Module):
 
     def __init__(self):
-        pass
+        
+        frame1 = nn.Linear(in_features = 120, out_features = 512)
+
 
 
 
@@ -26,5 +28,4 @@ class AAMSoftmaxLoss(nn.Module):
 
     def __init__(self, margin, scale):
         pass
-
 
