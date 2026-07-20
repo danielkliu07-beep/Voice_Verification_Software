@@ -59,7 +59,7 @@ class SE_Block(nn.Module):
 
         s = self.W2(s)
 
-        s = F.sigmoid(s)
+        s = torch.sigmoid(s)
 
         s = s.unsqueeze(2) #Turns s back into a (batch, channel, time) shape so we can multiply it with the orignal input
         out = s * x
@@ -113,24 +113,34 @@ class AttentiveStatPooling(nn.Module):
 
         super().__init__()
 
-        self.W1 = nn.Linear(in_features = in_dim, out_features = bottleneck_dim)
-
-        self.W2 = nn.Linear(in_features = bottleneck_dim, out_features = in_dim)
+        #Input dimension must be multiplied by 3 since we concatenate local input (1x), global mean (1x), and global std (1x)
+        self.W1 = nn.Conv1d(in_channels = in_dim * 3, out_channels = bottleneck_dim, kernel_size = 1)
+        self.W2 = nn.Conv1d(in_channels = bottleneck_dim, out_channels = in_dim, kernel_size = 1)
     
-    def forward(self, x):
+    def forward(self, x): #x shape: (batch, channels, time)
 
-        e = self.W1(x)
+        t = x.size(2) #time dimension
+
+        #Calculates the global mean of batch and channels for x while also expanding it to match the time dimension 
+        global_mean = torch.mean(x, dim = 2, keepdim = True).expand(-1, -1, t)
+        global_std = torch.std(x, dim = 2, keepdim = True).expand(-1, -1, t)
+
+        context_vector = torch.cat([x, global_mean, global_std], dim = 1)
+
+        e = self.W1(context_vector)
         e = F.relu(e)
         e = self.W2(e)
 
-        alpha = F.softmax(e, dim = -1)
+        alpha = F.softmax(e, dim = 2)
 
-        mean = torch.mean(alpha * x, dim = -1)
+        #Weighted mean (Summation over time)
+        mean = torch.sum(alpha * x, dim = 2)
 
+        #Weighted standard deviation
         std = torch.sum(alpha * x ** 2, dim = -1) - mean ** 2
         std = torch.sqrt(std.clamp(min = 1e-9))
 
-        out = torch.cat([mean, std], dim = -1)
+        out = torch.cat([mean, std], dim = 1)
 
         return out
 
@@ -167,20 +177,17 @@ class ECAPA_TDNN(nn.Module):
 
         self.block7 = nn.Sequential(
             nn.Linear(in_features = 3072, out_features = embd_dim),
-            nn.BatchNorm1d(num_features = 1)
+            nn.BatchNorm1d(num_features = embd_dim)
         )
 
     def forward(self, x):
         
         out1 = self.block1(x)
-
         out2 = self.block2(out1)
+        out3 = self.block3(out1 + out2)
+        out4 = self.block4(out1 + out2 + out3)
 
-        out3 = self.block3(out2)
-
-        out4 = self.block(out3)
-
-        out5 = self.block(out2 + out3 + out4)
+        out5 = self.block5(torch.cat([out2, out3, out4], dim = 1))
 
         output = self.block6(out5)
         output = self.block7(output)
