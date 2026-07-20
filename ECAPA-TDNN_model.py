@@ -170,6 +170,24 @@ class ECAPA_TDNN(nn.Module):
             nn.BatchNorm1d(num_features = 1)
         )
 
-    def forward(x):
+    def forward(self, x):
         
-        pass
+        out1 = self.block1(x)
+
+        out2 = self.block2(out1)
+
+        out3 = self.block3(out2)
+
+        out4 = self.block(out3)
+
+        out5 = self.block(out2 + out3 + out4)
+
+        output = self.block6(out5)
+        output = self.block7(output)
+
+        return output
+
+
+
+
+
