@@ -109,25 +109,28 @@ class SE_Res2Block(nn.Module):
 
 class AttentiveStatPooling(nn.Module):
 
-    def __init__(self, channels, reduced_dimension):
+    def __init__(self, in_dim, bottleneck_dim):
 
         super().__init__()
 
-        self.W1 = nn.Linear(in_features = channels, out_features = reduced_dimension)
+        self.W1 = nn.Linear(in_features = in_dim, out_features = bottleneck_dim)
 
-        self.W2 = nn.Linear(in_features = 1, out_features = reduced_dimension)
+        self.W2 = nn.Linear(in_features = bottleneck_dim, out_features = in_dim)
     
     def forward(self, x):
 
         e = self.W1(x)
-
         e = F.relu(e)
-
         e = self.W2(e)
 
-        e.unsqueeze(0)
+        alpha = F.softmax(e, dim = -1)
 
-        out = F.softmax(e)
+        mean = torch.mean(alpha * x, dim = -1)
+
+        std = torch.sum(alpha * x ** 2, dim = -1) - mean ** 2
+        std = torch.sqrt(std.clamp(min = 1e-9))
+
+        out = torch.cat([mean, std], dim = -1)
 
         return out
 
@@ -136,12 +139,12 @@ class AttentiveStatPooling(nn.Module):
 
 class ECAPA_TDNN(nn.Module):
 
-    def __init__(self, channels):
+    def __init__(self, in_channels = 80, channels = 512, embd_dim = 192):
         
         super().__init__()
 
         self.block1 = nn.Sequential(
-            nn.Conv1d(in_channels = channels, out_channels = channels, kernel_size = 5, dilation = 1),
+            nn.Conv1d(in_channels = in_channels, out_channels = channels, kernel_size = 5, dilation = 1),
             nn.ReLU(),
             nn.BatchNorm1d(num_features = channels)
         )
@@ -153,11 +156,20 @@ class ECAPA_TDNN(nn.Module):
         self.block4 = SE_Res2Block(channels = channels, kernel_size = 3, dilation = 4, scale = 8)
 
         self.block5 = nn.Sequential(
-            nn.Conv1d(in_channels = channels, out_channels = channels, kernel_size = 1, dilation = 1),
+            nn.Conv1d(in_channels = channels * 3, out_channels = 1536, kernel_size = 1, dilation = 1),
             nn.ReLU()
         )
 
+        self.block6 = nn.Sequential(
+            AttentiveStatPooling(in_dim = 1536, bottleneck_dim = 128),
+            nn.BatchNorm1d(num_features = 3072)
+        )
 
+        self.block7 = nn.Sequential(
+            nn.Linear(in_features = 3072, out_features = embd_dim),
+            nn.BatchNorm1d(num_features = 1)
+        )
 
     def forward(x):
+        
         pass
