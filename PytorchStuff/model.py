@@ -154,16 +154,16 @@ class ECAPA_TDNN(nn.Module):
         super().__init__()
 
         self.block1 = nn.Sequential(
-            nn.Conv1d(in_channels = in_channels, out_channels = channels, kernel_size = 5, dilation = 1),
+            nn.Conv1d(in_channels = in_channels, out_channels = channels, kernel_size = 5, padding = 2, dilation = 1),
             nn.ReLU(),
             nn.BatchNorm1d(num_features = channels)
         )
 
-        self.block2 = SE_Res2Block(channels = channels, kernel_size = 3, dilation = 2, scale = 8)
+        self.block2 = SE_Res2Block(channels = channels, kernel_size = 3, padding = 2, dilation = 2, scale = 8)
 
-        self.block3 = SE_Res2Block(channels = channels, kernel_size = 3, dilation = 3, scale = 8)
+        self.block3 = SE_Res2Block(channels = channels, kernel_size = 3, padding = 3, dilation = 3, scale = 8)
 
-        self.block4 = SE_Res2Block(channels = channels, kernel_size = 3, dilation = 4, scale = 8)
+        self.block4 = SE_Res2Block(channels = channels, kernel_size = 3, padding = 4, dilation = 4, scale = 8)
 
         self.block5 = nn.Sequential(
             nn.Conv1d(in_channels = channels * 3, out_channels = 1536, kernel_size = 1, dilation = 1),
